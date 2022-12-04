@@ -1,6 +1,6 @@
 #include <SoftwareSerial.h>
 
-SoftwareSerial espSerial(10, 11);
+SoftwareSerial espSerial(2, 11);
 
 int moisture_sensor1 = A0;
 int water_pump1 = 7;
@@ -74,14 +74,14 @@ void handleManualButtonPress(pump &state) {
    Serial.println(espSerial.available());
   if(espSerial.available() > 0) {
     String inputFromEsp;
-    inputFromEsp += (char) espSerial.read();
-    Serial.println(inputFromEsp);
-    bool button_state = inputFromEsp.toInt();
+    char espButtonInput = (char) espSerial.read();
+    Serial.println(espButtonInput);
+//    bool button_state = inputFromEsp.toInt();
     
-    if(button_state){
+    if(espButtonInput == '1'){
       Serial.println("PRESSED");
       state = manualPumpOn;
-    } else {
+    } else if(espButtonInput == '0') {
       state = pumpOff;
       Serial.println("RELEASED");
     }
@@ -112,7 +112,7 @@ void waterPumpSystem(int digital_water_pump_port, int analog_moisture_sensor_num
 }
 
 void pumpOnOrOff(int digital_water_pump_port, pump &state) {
-  if (state == 1 || state == 2) {
+  if (state == pumpOn || state == manualPumpOn) {
     digitalWrite(digital_water_pump_port, HIGH);
   } else {
     digitalWrite(digital_water_pump_port, LOW);
