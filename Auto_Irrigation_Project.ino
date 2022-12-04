@@ -1,6 +1,6 @@
 #include <SoftwareSerial.h>
 
-SoftwareSerial espSerial(5, 6);
+SoftwareSerial espSerial(10, 11);
 
 int moisture_sensor1 = A0;
 int water_pump1 = 7;
@@ -9,7 +9,8 @@ int moisture_sensor2 = A1;
 
 enum pump {
   pumpOff = 0,
-  pumpOn = 1
+  pumpOn = 1,
+  manualPumpOn = 2
 };
 
 pump state_1 = pumpOff;
@@ -21,20 +22,53 @@ void setup() {
   espSerial.setTimeout(1);
   pinMode(water_pump1, OUTPUT);
   pinMode(water_pump2, OUTPUT);
-};
+}
 
 String enumToString(pump &state) {
-  if (state == 0)
-    return "0";
-  if (state == 1)
-    return "1";
-};
+//  if (state == 0)
+//    return "0";
+//  if (state == 1)
+//    return "1";
+//  if (state == 2)
+//    return "2";
+
+  switch (state) {
+    case 0:
+      return "0";
+      break;
+    case 1:
+      return "1";
+      break;
+    case 2:
+      return "2";
+      break;
+    defualt:
+      break;
+  }
+}
 
 void loop() {
-  waterPumpSystem(water_pump1, moisture_sensor1, state_1);
-//  waterPumpSystem(water_pump2, moisture_sensor2, state_2)
-  handleManualButtonPress(state_1);
-};
+  irrigationSystem(water_pump1, moisture_sensor1, state_1);
+}
+
+void irrigationSystem(int digital_water_pump_port, int analog_moisture_sensor_port, pump &state){
+  float moist_level_percent = 0;
+  waterPumpSystem(digital_water_pump_port, analog_moisture_sensor_port, state, moist_level_percent);
+  handleManualButtonPress(state);
+  reportInfo(state, moist_level_percent);
+  pumpOnOrOff(digital_water_pump_port, state);
+}
+
+void reportInfo(pump &state, float &moist_level_percent){
+  Serial.print("Soil Moisture Level: ");
+  Serial.print(moist_level_percent);
+  Serial.print("%          ");
+  Serial.print("Water Pump State: ");
+  Serial.println(enumToString(state));
+  
+  String moistureAndPumpState = String(moist_level_percent) + "%" + enumToString(state);
+  espSerial.println(moistureAndPumpState);
+}
 
 void handleManualButtonPress(pump &state) {
    Serial.println(espSerial.available());
@@ -46,41 +80,41 @@ void handleManualButtonPress(pump &state) {
     
     if(button_state){
       Serial.println("PRESSED");
-      state = 1;
+      state = manualPumpOn;
     } else {
+      state = pumpOff;
       Serial.println("RELEASED");
-      state = 0;
     }
   }
   delay(1);
-};
+}
 
-void waterPumpSystem(int digital_water_pump_number, int analog_moisture_sensor_number, pump &state) {
+void waterPumpSystem(int digital_water_pump_port, int analog_moisture_sensor_number, pump &state, float &moist_level_percent) {
 
   // Calculating Moisture Level
   float moist_level_res = analogRead(analog_moisture_sensor_number);
-  float moist_level_percent = 100 - ((moist_level_res / 1023) * 100);
-  Serial.print("Soil Moisture Level: ");
-  Serial.print(moist_level_percent);
-  Serial.print("%          ");
+  moist_level_percent = map(moist_level_res, 180, 515, 100, 0);
+  
 
   // Running Water Pump Logic
-  float least_amount_water = 40;
-  float most_amount_water = 69.99;
-  if (moist_level_percent < least_amount_water) {
-    state = pumpOn;
-    digitalWrite(digital_water_pump_number, HIGH);
-  } else if (state == pumpOn && moist_level_percent > least_amount_water && moist_level_percent < most_amount_water) {
-    state = pumpOn;
-    digitalWrite(digital_water_pump_number, HIGH);
+  if(state != manualPumpOn) {
+    float least_amount_water = 40;
+    float most_amount_water = 69.99;
+    if (moist_level_percent < least_amount_water) {
+      state = pumpOn;
+    } else if (state == pumpOn && moist_level_percent > least_amount_water && moist_level_percent < most_amount_water) {
+      state = pumpOn;
+    } else {
+      state = pumpOff; 
+    };
+  }
+  
+}
+
+void pumpOnOrOff(int digital_water_pump_port, pump &state) {
+  if (state == 1 || state == 2) {
+    digitalWrite(digital_water_pump_port, HIGH);
   } else {
-    state = pumpOff; 
-    digitalWrite(digital_water_pump_number, LOW);
+    digitalWrite(digital_water_pump_port, LOW);
   };
-  
-  String moistureAndPumpState = String(moist_level_percent) + "%" + enumToString(state);
-  espSerial.println(moistureAndPumpState);
-  
-  Serial.print("Water Pump State: ");
-  Serial.println(enumToString(state));
-};
+}
