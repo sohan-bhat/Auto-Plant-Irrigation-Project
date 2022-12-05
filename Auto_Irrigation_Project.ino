@@ -73,10 +73,14 @@ void reportInfo(pump &state, float &moist_level_percent){
 void handleManualButtonPress(pump &state) {
    Serial.println(espSerial.available());
   if(espSerial.available() > 0) {
-    String inputFromEsp;
-    char espButtonInput = (char) espSerial.read();
-    Serial.println(espButtonInput);
-//    bool button_state = inputFromEsp.toInt();
+    String inputFromEsp = espSerial.readString();
+    Serial.println(inputFromEsp);
+    // ?????????????????0?????????1?????
+    char espButtonInput;
+    for(int i = 0; i < inputFromEsp.length(); i++){
+      if(inputFromEsp[i] == '0' || inputFromEsp[i] == '1')
+        espButtonInput = inputFromEsp[i];
+    }
     
     if(espButtonInput == '1'){
       Serial.println("PRESSED");
